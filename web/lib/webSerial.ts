@@ -71,14 +71,11 @@ export async function openWebSerial(): Promise<Transport> {
       return new Promise((resolve) => (waiter = resolve));
     },
     async close() {
-      // The reader must let go before the port can close.
-      try {
-        await reader.cancel();
-        reader.releaseLock();
-        await port.close();
-      } catch {
-        // Already gone, e.g. the cable was pulled.
-      }
+      // The reader must let go before the port can close. Each step can fail on
+      // its own: cancel rejects after a read error, and close if the cable was pulled.
+      await reader.cancel().catch(() => {});
+      reader.releaseLock();
+      await port.close().catch(() => {});
       finish();
     },
   };

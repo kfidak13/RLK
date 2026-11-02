@@ -30,6 +30,10 @@ const isCalibration = (v: unknown): v is Calibration =>
     Number.isFinite(v[k]),
   );
 
+// A blank field would save as null, and parseScan would then refuse the file.
+export const isSaveable = (calibration: Calibration): boolean =>
+  isCalibration(calibration);
+
 const isSample = (v: unknown): v is Sample =>
   isObject(v) &&
   Number.isInteger(v.panSteps) &&

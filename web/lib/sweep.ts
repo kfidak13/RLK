@@ -22,6 +22,7 @@ export type TiltLimits = { min: number; max: number };
 
 const STEPS_PER_REV = 200;
 const MAX_POINTS = 20000;
+const MAX_TILT_LIMIT = 10000;
 const READ_SECONDS = 0.5;
 const STEPS_PER_SECOND = 100;
 
@@ -39,6 +40,8 @@ export function limitsProblem(limits: TiltLimits): string | null {
     limits.max < 0
   )
     return "Tilt limits must be whole numbers: a minimum of 0 or below, and a maximum of 0 or above.";
+  if (Math.abs(limits.min) > MAX_TILT_LIMIT || limits.max > MAX_TILT_LIMIT)
+    return `Tilt limits can't be more than ${MAX_TILT_LIMIT} steps from the mark.`;
   return null;
 }
 
@@ -55,8 +58,8 @@ export function checkGrid(
   if (panStep <= 0 || tiltStep <= 0) return "Step sizes must be at least 1.";
   if (panMin > panMax || tiltMin > tiltMax)
     return "Each range's minimum must not be above its maximum.";
-  if (panMax - panMin > STEPS_PER_REV)
-    return `Pan range can't exceed ${STEPS_PER_REV} steps (one full turn).`;
+  if (panMax - panMin > STEPS_PER_REV || Math.abs(panMin) > STEPS_PER_REV || Math.abs(panMax) > STEPS_PER_REV)
+    return `Pan can't go more than one full turn (${STEPS_PER_REV} steps), to protect the cables.`;
   const points =
     (Math.floor((panMax - panMin) / panStep) + 1) *
     (Math.floor((tiltMax - tiltMin) / tiltStep) + 1);

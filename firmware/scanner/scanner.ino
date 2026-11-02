@@ -72,7 +72,8 @@ void handleMove(long pan, long tilt) {
     return;
   }
   const long newTilt = tiltPos + tilt;
-  if (newTilt < tiltMin || newTilt > tiltMax) {
+  // Only moves further out are refused, so tilt can always come back inside tightened limits.
+  if ((tilt > 0 && newTilt > tiltMax) || (tilt < 0 && newTilt < tiltMin)) {
     Serial.println("err limit");
     return;
   }
@@ -103,8 +104,6 @@ void handleRead() {
 void handleLimits(long min, long max) {
   if (min > 0 || max < 0) {
     Serial.println("err cmd");
-  } else if (tiltPos < min || tiltPos > max) {
-    Serial.println("err limit");
   } else {
     tiltMin = min;
     tiltMax = max;

@@ -49,9 +49,14 @@ Web Serial requires Chrome or Edge. The page says so if `navigator.serial` is mi
 | Any other input | None | `err cmd` |
 | On boot | Uno has reset; position is zero | `ready` |
 
-Tilt limits default to -20 and +20 steps after every boot. A move that would pass a
-limit replies `err limit` and moves neither axis. This is enforced in the firmware so
-that a page bug cannot jam the linkage.
+Tilt limits default to -20 and +20 steps after every boot. A move that would take tilt
+further past a limit replies `err limit` and moves neither axis; a move back towards
+the range is allowed, so limits can be tightened from anywhere. `L` replies `err cmd`
+if the range doesn't include zero. This is enforced in the firmware so that a page bug
+cannot jam the linkage.
+
+The motors are released after boot, and `M` while released replies `err off` and moves
+nothing.
 
 Pins follow `CLAUDE.md`: enable D8 (LOW = on), X step/dir D2/D5, Y step/dir D3/D6,
 sensor A3.
@@ -64,7 +69,8 @@ the Uno. There is no way to detect where the axes physically are.
 - The operator marks a tilt **reference position** on the linkage. Measured tilt limits
   are steps from that mark.
 - After connecting, the page asks the operator to confirm tilt is at the mark. If it is
-  not, they release the motors, move it by hand, re-enable, and press Set Zero (`Z`).
+  not, they release the motors, move it by hand, re-enable, and press Set Tilt Mark Here
+(`Z`), which asks for confirmation because it moves the limits.
 - On connect the page sends the saved axis choice and tilt limits (`A`, `L`).
 
 Scans are relative to where the scanner sits when the scan starts, so the operator can

@@ -43,6 +43,7 @@ export function sampleToPoint(s: Sample, cal: Calibration): Point | null {
   const pan = (s.panSteps * cal.panDegPerStep * Math.PI) / 180;
   const tilt = (s.tiltSteps * cal.tiltDegPerStep! * Math.PI) / 180;
   const r = cm + cal.sensorOffsetCm;
+  if (!Number.isFinite(r)) return null;
   return {
     x: r * Math.cos(tilt) * Math.sin(pan),
     y: r * Math.sin(tilt),

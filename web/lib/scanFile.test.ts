@@ -1,11 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CALIBRATION, type Sample } from "./convert";
-import { parseScan, serializeScan } from "./scanFile";
+import { isSaveable, parseScan, serializeScan } from "./scanFile";
 
 const calibration = { ...DEFAULT_CALIBRATION, tiltDegPerStep: 0.5 };
 const samples: Sample[] = [{ panSteps: -1, tiltSteps: 2, raw: 300 }];
 const valid = { version: 1, createdAt: "2026-11-02T00:00:00.000Z", calibration, samples };
 const withFile = (patch: object) => JSON.stringify({ ...valid, ...patch });
+
+describe("isSaveable", () => {
+  it("accepts a complete calibration", () => expect(isSaveable(calibration)).toBe(true));
+
+  it.each(["panDegPerStep", "tiltDegPerStep", "sensorOffsetCm", "curveA", "curveB"])(
+    "refuses a blank %s, which parseScan would reject on load",
+    (key) => expect(isSaveable({ ...calibration, [key]: NaN })).toBe(false),
+  );
+
+  it("refuses an unset tilt calibration", () =>
+    expect(isSaveable(DEFAULT_CALIBRATION)).toBe(false));
+});
 
 describe("scan files", () => {
   it("round-trips a scan", () => {

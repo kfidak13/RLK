@@ -64,6 +64,11 @@ describe("sampleToPoint", () => {
 });
 
 describe("calibration", () => {
+  it("a blank sensor offset drops the point instead of producing NaN", () =>
+    expect(
+      sampleToPoint({ panSteps: 0, tiltSteps: 0, raw: 300 }, { ...cal, sensorOffsetCm: NaN }),
+    ).toBeNull());
+
   it("isCalibrated rejects null, 0 and NaN", () => {
     for (const t of [null, 0, NaN])
       expect(isCalibrated({ ...cal, tiltDegPerStep: t })).toBe(false);

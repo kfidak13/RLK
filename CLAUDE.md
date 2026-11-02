@@ -43,6 +43,8 @@ Average around 10 readings per sample; the sensor needs ~40 ms between fresh rea
 - `npm --prefix web run dev`: run the page at localhost:3000 (Chrome or Edge, for Web Serial)
 - `npm --prefix web test`: run the tests
 - `arduino-cli compile --fqbn arduino:avr:uno firmware/scanner`: compile the firmware
+- `clang++ -std=c++17 -o /tmp/scanner_host_test firmware/test/host_test.cpp && /tmp/scanner_host_test`:
+  test the firmware's command handling and tilt limits on the computer
 - `node web/scripts/make-sample-scan.mjs > docs/sample-scan.json`: regenerate the sample scan,
   which can be loaded in the page with no hardware
 

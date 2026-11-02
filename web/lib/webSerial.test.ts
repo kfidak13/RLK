@@ -1,5 +1,32 @@
 import { describe, expect, it } from "vitest";
-import { createLineSplitter } from "./webSerial";
+import { createLineSplitter, openWebSerial } from "./webSerial";
+
+describe("openWebSerial", () => {
+  it("still closes the port after a read error makes cancel fail", async () => {
+    let portClosed = false;
+    const port = {
+      open: async () => {},
+      close: async () => {
+        portClosed = true;
+      },
+      readable: {
+        getReader: () => ({
+          read: () => Promise.reject(new Error("framing error")),
+          cancel: () => Promise.reject(new TypeError("stream errored")),
+          releaseLock: () => {},
+        }),
+      },
+    };
+    Object.defineProperty(navigator, "serial", {
+      configurable: true,
+      value: { requestPort: async () => port },
+    });
+    const transport = await openWebSerial();
+    await expect(transport.readLine()).resolves.toBeNull();
+    await transport.close();
+    expect(portClosed).toBe(true);
+  });
+});
 
 describe("createLineSplitter", () => {
   it("joins lines split across chunks", () => {

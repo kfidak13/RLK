@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PointCloud } from "@/components/PointCloud";
 import { isCalibrated, type Calibration, type Sample, samplesToPoints } from "@/lib/convert";
-import { parseScan, serializeScan } from "@/lib/scanFile";
+import { isSaveable, parseScan, serializeScan } from "@/lib/scanFile";
 import {
   runScan,
   Scanner,
@@ -23,9 +23,10 @@ import { isWebSerialAvailable, openWebSerial } from "@/lib/webSerial";
 
 type Phase = "disconnected" | "connecting" | "checklist" | "ready" | "scanning";
 
-const CHECKLIST = [
+const checklistFor = (tiltDriver: 0 | 1) => [
   "12V supply is on",
   "Tilt is at its reference mark",
+  `The tilt motor is on the ${tiltDriver === 1 ? "X" : "Y"} driver, as set below. If you haven't confirmed that yet, move 1 step at a time until you have`,
   "The object is more than 10 cm from the sensor",
 ];
 const JOG_STEPS = [-5, -1, 1, 5];
@@ -80,7 +81,7 @@ const isFatal = (e: unknown) =>
 export function ScanApp() {
   const [settings, setSettings] = useState<Settings>(() => loadSettings(browserStorage()));
   const [phase, setPhase] = useState<Phase>("disconnected");
-  const [checked, setChecked] = useState<boolean[]>(CHECKLIST.map(() => false));
+  const [checked, setChecked] = useState<boolean[]>(checklistFor(0).map(() => false));
   const [motorsOn, setMotorsOn] = useState(false);
   const [position, setPosition] = useState({ pan: 0, tilt: 0 });
   const [samples, setSamples] = useState<Sample[]>([]);
@@ -104,20 +105,29 @@ export function ScanApp() {
   useEffect(() => saveSettings(browserStorage(), settings), [settings]);
 
   useEffect(() => {
-    if (!scanning) return;
+    if (!scanning && !unsaved) return;
     const warn = (e: BeforeUnloadEvent) => e.preventDefault();
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [scanning]);
+  }, [scanning, unsaved]);
+
+  // Closing the port doesn't reset the Uno, so the motors would stay powered.
+  useEffect(() => {
+    const release = () => void scannerRef.current?.release().catch(() => {});
+    window.addEventListener("pagehide", release);
+    return () => window.removeEventListener("pagehide", release);
+  }, []);
 
   const disconnect = async () => {
     const transport = transportRef.current;
+    const scanner = scannerRef.current;
     transportRef.current = null;
     scannerRef.current = null;
     setPhase("disconnected");
     setMotorsOn(false);
     setPosition({ pan: 0, tilt: 0 });
-    setChecked(CHECKLIST.map(() => false));
+    setChecked(checklistFor(0).map(() => false));
+    await scanner?.release().catch(() => {});
     await transport?.close();
   };
 
@@ -182,19 +192,26 @@ export function ScanApp() {
       setMotorsOn(false);
     });
 
+  const enableAfterRelease = async () => {
+    await enable();
+    setMessage(
+      "If tilt moved while released, put it back on its mark and press Set tilt mark here.",
+    );
+  };
+
+  const setTiltMark = () => {
+    if (
+      !window.confirm(
+        "This makes the current spot the tilt reference mark, and tilt limits are measured from it. Only do this if tilt is physically on your mark. Continue?",
+      )
+    )
+      return;
+    return act((s) => s.setZero());
+  };
+
   const applyLimits = () => {
     if (limitsProblem(limits)) return;
-    return act(async (s) => {
-      try {
-        await s.setLimits(limits.min, limits.max);
-      } catch (e) {
-        if (e instanceof ScannerError && e.kind === "limit")
-          throw new Error(
-            "Those limits don't include the current tilt position. Jog inside them first.",
-          );
-        throw e;
-      }
-    });
+    return act((s) => s.setLimits(limits.min, limits.max));
   };
 
   const changeTiltDriver = (driver: 0 | 1) => {
@@ -260,7 +277,7 @@ export function ScanApp() {
       setSamples(scan.samples);
       setSettings((s) => ({ ...s, calibration: scan.calibration }));
       setUnsaved(false);
-      setMessage(`Loaded ${file.name}.`);
+      setMessage(`Loaded ${file.name}. Its calibration has replaced the one on this page.`);
     } catch (e) {
       setMessage(describeError(e));
     }
@@ -279,7 +296,7 @@ export function ScanApp() {
           key={steps}
           type="button"
           className={`${button} flex-1 tabular-nums`}
-          disabled={phase !== "ready" || !motorsOn}
+          disabled={phase !== "ready" || !motorsOn || Boolean(limitsProblem(limits))}
           aria-label={`${label} ${steps > 0 ? "+" : ""}${steps} steps`}
           onClick={() => act((s) => s.move(...move(steps)))}
         >
@@ -331,8 +348,8 @@ export function ScanApp() {
         {phase === "checklist" && (
           <section className={section}>
             <h2 className={heading}>Before enabling the motors</h2>
-            {CHECKLIST.map((item, i) => (
-              <label key={item} className="flex items-center gap-2 text-sm">
+            {checklistFor(tiltDriver).map((item, i) => (
+              <label key={i} className="flex items-start gap-2 text-sm">
                 <input
                   type="checkbox"
                   checked={checked[i]}
@@ -368,7 +385,7 @@ export function ScanApp() {
                   Release motors
                 </button>
               ) : (
-                <button type="button" className={button} onClick={enable}>
+                <button type="button" className={button} onClick={enableAfterRelease}>
                   Enable motors
                 </button>
               ))}
@@ -376,9 +393,9 @@ export function ScanApp() {
               type="button"
               className={button}
               disabled={phase !== "ready"}
-              onClick={() => act((s) => s.setZero())}
+              onClick={setTiltMark}
             >
-              Set zero
+              Set tilt mark here
             </button>
           </div>
         </section>
@@ -408,7 +425,12 @@ export function ScanApp() {
                 Start scan
               </button>
             )}
-            <button type="button" className={button} disabled={scanning || samples.length === 0} onClick={save}>
+            <button
+              type="button"
+              className={button}
+              disabled={scanning || samples.length === 0 || !isSaveable(calibration)}
+              onClick={save}
+            >
               Save
             </button>
             <label className={`${button} ${scanning ? "pointer-events-none opacity-40" : "cursor-pointer"}`}>
@@ -427,6 +449,11 @@ export function ScanApp() {
             </label>
           </div>
           {!scanning && startProblem && <p className="text-xs text-zinc-400">{startProblem}</p>}
+          {samples.length > 0 && !isSaveable(calibration) && (
+            <p className="text-xs text-zinc-400">
+              Fill in every calibration box to save this scan.
+            </p>
+          )}
         </section>
 
         <section className={section}>
@@ -462,7 +489,7 @@ export function ScanApp() {
             Tilt motor
             <select
               value={tiltDriver}
-              disabled={scanning}
+              disabled={scanning || position.tilt !== 0}
               onChange={(e) => changeTiltDriver(e.target.value === "1" ? 1 : 0)}
               className="mt-1 w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-sm text-zinc-100 disabled:opacity-50"
             >
@@ -470,6 +497,11 @@ export function ScanApp() {
               <option value={1}>X driver</option>
             </select>
           </label>
+          {position.tilt !== 0 && (
+            <p className="text-xs text-zinc-400">
+              Move tilt back to 0 before changing the tilt motor.
+            </p>
+          )}
         </section>
       </div>
 

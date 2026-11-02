@@ -63,6 +63,10 @@ describe("checkGrid", () => {
     { tiltMax: NaN },
     { tiltMin: 0.5 },
     { panMin: -101, panMax: 100 },
+    { panMin: 5000, panMax: 5000 },
+    { panMin: 1000, panMax: 1200 },
+    { panMin: -300, panMax: -300 },
+    { panMin: 1e16, panMax: 1e16 },
     { tiltMin: -100000, tiltMax: 100000, panStep: 1 },
   ])("refuses invalid grid %o", (bad) =>
     expect(checkGrid({ ...DEFAULT_GRID, ...bad }, 0, limits)).toEqual(expect.any(String)));
@@ -75,6 +79,7 @@ describe("checkGrid limits", () => {
     { min: 5, max: 20 },
     { min: -20, max: -5 },
     { min: -1.5, max: 20 },
+    { min: -1e16, max: 1e16 },
   ])("refuses unusable limits %o", (bad) =>
     expect(checkGrid(DEFAULT_GRID, 0, bad)).toEqual(expect.any(String)));
 });
