@@ -90,6 +90,17 @@ describe("Scanner", () => {
     await expect(s.waitReady(50)).resolves.toBeUndefined();
   });
 
+  it("accepts ready with a stray byte stuck to the front of it", async () => {
+    const { uno, s } = make();
+    uno.push("�ready");
+    await expect(s.waitReady(50)).resolves.toBeUndefined();
+  });
+
+  it("a stray byte doesn't hide a reset during a command", async () => {
+    const { s } = make(() => "�ready");
+    await expectKind(s.move(1, 0), "reset");
+  });
+
   it("waitReady rejects with timeout if the Uno stays silent", async () => {
     const { s } = make();
     await expectKind(s.waitReady(10), "timeout");

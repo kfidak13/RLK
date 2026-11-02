@@ -34,6 +34,9 @@ export class ScannerError extends Error {
 
 const STEPS_PER_SECOND = 100;
 
+// The real Uno can send a stray byte as it boots, stuck to the front of the line.
+const isReady = (line: string) => line.endsWith("ready");
+
 export class Scanner {
   position = { pan: 0, tilt: 0 };
   private queue: Promise<unknown> = Promise.resolve();
@@ -51,7 +54,7 @@ export class Scanner {
   waitReady(timeoutMs = 5000): Promise<void> {
     return this.enqueue(async () => {
       const deadline = Date.now() + timeoutMs;
-      while ((await this.readReply(deadline - Date.now())) !== "ready");
+      while (!isReady(await this.readReply(deadline - Date.now())));
     });
   }
 
@@ -111,7 +114,7 @@ export class Scanner {
         throw this.die("disconnected");
       }
       const reply = await this.readReply(this.baseTimeoutMs + extraMs);
-      if (reply === "ready") throw this.die("reset");
+      if (isReady(reply)) throw this.die("reset");
       if (reply === "err limit") throw new ScannerError("limit");
       if (reply === "err off") throw new ScannerError("motorsOff");
       return parse(reply);
