@@ -116,7 +116,7 @@ export function PointCloud({ points }: { points: Point[] }) {
     view.controls.target.copy(sphere.center);
     view.camera.position
       .copy(sphere.center)
-      .addScaledVector(direction, Math.max(sphere.radius * 2.5, 20));
+      .addScaledVector(direction, Math.max(sphere.radius * 3, 20));
   };
 
   return (

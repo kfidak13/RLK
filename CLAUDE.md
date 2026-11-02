@@ -34,7 +34,17 @@ Average around 10 readings per sample; the sensor needs ~40 ms between fresh rea
 ## Status
 - Wiring done, motors and sensor confirmed working with scanner_test/scanner_test.ino
   (serial command test: `x <steps>`, `y <steps>`, `r`, `s`, `o`, `f` at 9600 baud, Newline ending).
-- Next: build the actual scanning software.
+- Scanning software built: `firmware/scanner/` (Uno) and `web/` (Next.js page that drives the
+  sweep and shows the 3D point cloud). Design: `docs/superpowers/specs/2026-11-02-3d-scan-viewer-design.md`.
+  So far it has only been compiled and tested against a simulated Uno, never on the hardware.
+- Next: work through `docs/hardware-checklist.md`.
+
+## Commands
+- `npm --prefix web run dev`: run the page at localhost:3000 (Chrome or Edge, for Web Serial)
+- `npm --prefix web test`: run the tests
+- `arduino-cli compile --fqbn arduino:avr:uno firmware/scanner`: compile the firmware
+- `node web/scripts/make-sample-scan.mjs > docs/sample-scan.json`: regenerate the sample scan,
+  which can be loaded in the page with no hardware
 
 ## Notes for development
 - Don't unplug/plug motors while 12V is on (kills A4988s).
