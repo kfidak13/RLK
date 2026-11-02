@@ -31,6 +31,17 @@ function axisValues(min: number, max: number, step: number): number[] {
   return values;
 }
 
+export function limitsProblem(limits: TiltLimits): string | null {
+  if (
+    !Number.isInteger(limits.min) ||
+    !Number.isInteger(limits.max) ||
+    limits.min > 0 ||
+    limits.max < 0
+  )
+    return "Tilt limits must be whole numbers: a minimum of 0 or below, and a maximum of 0 or above.";
+  return null;
+}
+
 export function checkGrid(
   grid: Grid,
   startTilt: number,
@@ -39,6 +50,8 @@ export function checkGrid(
   const { panMin, panMax, panStep, tiltMin, tiltMax, tiltStep } = grid;
   if (![panMin, panMax, panStep, tiltMin, tiltMax, tiltStep].every(Number.isInteger))
     return "Scan ranges and step sizes must be whole numbers.";
+  const badLimits = limitsProblem(limits);
+  if (badLimits) return badLimits;
   if (panStep <= 0 || tiltStep <= 0) return "Step sizes must be at least 1.";
   if (panMin > panMax || tiltMin > tiltMax)
     return "Each range's minimum must not be above its maximum.";

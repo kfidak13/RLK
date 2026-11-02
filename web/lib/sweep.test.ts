@@ -68,6 +68,17 @@ describe("checkGrid", () => {
     expect(checkGrid({ ...DEFAULT_GRID, ...bad }, 0, limits)).toEqual(expect.any(String)));
 });
 
+describe("checkGrid limits", () => {
+  it.each([
+    { min: NaN, max: 20 },
+    { min: -20, max: NaN },
+    { min: 5, max: 20 },
+    { min: -20, max: -5 },
+    { min: -1.5, max: 20 },
+  ])("refuses unusable limits %o", (bad) =>
+    expect(checkGrid(DEFAULT_GRID, 0, bad)).toEqual(expect.any(String)));
+});
+
 describe("estimateSeconds", () => {
   it("estimates the default at about 6 minutes", () => {
     const s = estimateSeconds(DEFAULT_GRID);
