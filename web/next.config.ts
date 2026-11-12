@@ -1,9 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  cacheComponents: true,
-  partialPrefetching: true,
+  // Plain files for GitHub Pages, which serves the site under /RLK.
+  output: "export",
+  basePath: process.env.PAGES_BASE_PATH ?? "",
   turbopack: {
     rules: {
       "*.css": {

@@ -11,9 +11,9 @@ pan/tilt angles, collects distance readings, and turns them into a scan
 - 2x NEMA 17 steppers (4-wire), plugged into the X and Y motor headers
 - Sharp GP2Y0A21YK0F IR distance sensor (analog output, about 10-80 cm range, non-linear, noisy)
 - 12V supply into the shield's blue screw terminal (motor power only); USB powers the Uno + sensor
-- No microstepping jumpers installed -> full-step, 200 steps/rev
+- 1/16 microstepping: 3200 microsteps/rev
 - No endstops / limit switches. The tilt axis has LIMITED mechanical travel (screw linkage):
-  never run it far without a known home position. Keep tilt moves small until limits are measured.
+  the measured Y travel is 450 microsteps, starting from the lower endpoint.
 
 ## Pin map (fixed by the CNC shield)
 | Function        | Arduino pin |
@@ -24,29 +24,33 @@ pan/tilt angles, collects distance readings, and turns them into a scan
 | IR sensor out   | A3 (shield header "CoolEn") |
 | Sensor power    | shield 5V/GND header |
 
-Which motor (X or Y) is pan vs tilt has not been confirmed yet. Check with a small move first.
+X is pan (a 45° sweep) and Y is tilt, as set in the owner's sketch.
 
-## Sensor conversion (approximate)
-volts = raw * 5.0 / 1023.0
-cm = 27.728 * pow(volts, -1.2045)   // valid ~10-80 cm; volts < 0.35 = out of range
-Average around 10 readings per sample; the sensor needs ~40 ms between fresh readings.
+## Firmware
+`firmware/scanner/scanner.ino` is the owner's own sketch; keep it as written unless asked.
+It runs the whole scan itself (46 rows × 26 points) and prints one line per point at 115200:
+`Row 3/46 | X: 12.4 deg | Y: 20 microsteps | ADC: 412 | Voltage: 2.013 V | Distance: 34.2 cm (approx)`.
+Commands: `t` test reading, `s` start, `q` stop, `x <microsteps>` X sweep per row (16-800,
+default 400 = 45°), `y <microsteps>` Y per row (1-450, default 10). It scans once per reset.
+X angles use 800 microsteps = 90°.
+Its distance formula is `27.86 * pow(volts, -1.15)`, valid about 10-80 cm.
+
+## Web page
+`web/` reads those lines (`web/lib/sketchLine.ts`) and draws them in 3D. Before each scan it
+sends the page's X sweep and Y per row settings. Pan = X − sweep / 2;
+tilt = Y × span / 450 − span / 2, where span (degrees of tilt across the full Y travel) is a
+setting on the page. If the sketch's limits or travel change, update the constants in sketchLine.ts.
+Design: `docs/superpowers/specs/2026-11-12-simple-scan-page-design.md`.
 
 ## Status
-- Wiring done, motors and sensor confirmed working with scanner_test/scanner_test.ino
-  (serial command test: `x <steps>`, `y <steps>`, `r`, `s`, `o`, `f` at 9600 baud, Newline ending).
-- Scanning software built: `firmware/scanner/` (Uno) and `web/` (Next.js page that drives the
-  sweep and shows the 3D point cloud). Design: `docs/superpowers/specs/2026-11-02-3d-scan-viewer-design.md`.
-  So far it has only been compiled and tested against a simulated Uno, never on the hardware.
-- Next: work through `docs/hardware-checklist.md`.
+- Motors and sensor work with the owner's sketch. The page hasn't been run against the real
+  scanner yet, and the tilt span (default 30°) hasn't been measured.
 
 ## Commands
+- Live page: https://kfidak13.github.io/RLK/ (published by `.github/workflows/pages.yml` on every push to main)
 - `npm --prefix web run dev`: run the page at localhost:3000 (Chrome or Edge, for Web Serial)
 - `npm --prefix web test`: run the tests
-- `arduino-cli compile --fqbn arduino:avr:uno firmware/scanner`: compile the firmware
-- `clang++ -std=c++17 -o /tmp/scanner_host_test firmware/test/host_test.cpp && /tmp/scanner_host_test`:
-  test the firmware's command handling and tilt limits on the computer
-- `node web/scripts/make-sample-scan.mjs > docs/sample-scan.json`: regenerate the sample scan,
-  which can be loaded in the page with no hardware
+- `arduino-cli compile --upload -p <port> --fqbn arduino:avr:uno firmware/scanner`: flash the sketch
 
 ## Notes for development
 - Don't unplug/plug motors while 12V is on (kills A4988s).
