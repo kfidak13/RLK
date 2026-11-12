@@ -1,4 +1,11 @@
-import type { Transport } from "./scanner";
+export interface Transport {
+  port: SerialPort;
+  // Sends one line; the transport adds the line ending.
+  write(line: string): Promise<void>;
+  // null means the connection closed.
+  readLine(): Promise<string | null>;
+  close(): Promise<void>;
+}
 
 const BAUD_RATE = 115200;
 
@@ -16,8 +23,9 @@ export function createLineSplitter(): (chunk: string) => string[] {
 }
 
 // Opening the port resets the Uno, so the caller should wait for "ready".
-export async function openWebSerial(): Promise<Transport> {
-  const port = await navigator.serial.requestPort();
+// Pass a port to reopen it without asking the user to pick one again.
+export async function openWebSerial(existing?: SerialPort): Promise<Transport> {
+  const port = existing ?? (await navigator.serial.requestPort());
   await port.open({ baudRate: BAUD_RATE });
   const reader = port.readable!.getReader();
   const encoder = new TextEncoder();
@@ -57,6 +65,7 @@ export async function openWebSerial(): Promise<Transport> {
   })();
 
   return {
+    port,
     async write(line) {
       const writer = port.writable!.getWriter();
       try {

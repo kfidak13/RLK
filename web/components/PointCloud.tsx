@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import type { Point } from "@/lib/convert";
+import type { Point } from "@/lib/sketchLine";
 
 const NEAR_HUE = 0.08;
 const FAR_HUE = 0.58;

@@ -2,6 +2,9 @@
 
 Date: 2026-11-02
 
+> **Replaced** by `2026-11-12-simple-scan-page-design.md`. The owner's own sketch now runs the scan,
+> and the page was simplified around it. Kept for history.
+
 ## Goal
 
 Sweep the IR pan-tilt scanner across a single object 20-60 cm away and show the

@@ -26,6 +26,35 @@ describe("openWebSerial", () => {
     await transport.close();
     expect(portClosed).toBe(true);
   });
+
+  it("reopens a port it's given without asking for one", async () => {
+    let opened = 0;
+    const port = {
+      open: async () => {
+        opened++;
+      },
+      close: async () => {},
+      readable: {
+        getReader: () => ({
+          read: () => new Promise(() => {}),
+          cancel: async () => {},
+          releaseLock: () => {},
+        }),
+      },
+    };
+    Object.defineProperty(navigator, "serial", {
+      configurable: true,
+      value: {
+        requestPort: async () => {
+          throw new Error("should not ask for a port");
+        },
+      },
+    });
+    const transport = await openWebSerial(port as unknown as SerialPort);
+    expect(opened).toBe(1);
+    expect(transport.port).toBe(port);
+    await transport.close();
+  });
 });
 
 describe("createLineSplitter", () => {

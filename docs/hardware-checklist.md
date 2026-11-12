@@ -1,12 +1,10 @@
-# Hardware checklist
+# Running a scan
 
-Work through this in order the first time you use the scanner. **Never plug or unplug a motor while the 12V supply is on**, because it can destroy the A4988 drivers.
+**Never plug or unplug a motor while the 12V supply is on**, because it can destroy the A4988 drivers.
 
-Everything up to this point has been tested without hardware: the firmware has only been compiled, and the page has only talked to a simulated Uno. These steps are the first real test, so go slowly and keep a hand near the 12V supply.
+## 1. Flash the sketch
 
-## 1. Flash the firmware
-
-Close any serial monitor, and disconnect in the page if it's open. From the repo root, find the Uno's port, then build and upload:
+Close the Arduino IDE's Serial Monitor first, because only one program can use the port. From the repo root:
 
 ```bash
 arduino-cli board list
@@ -16,63 +14,34 @@ arduino-cli board list
 arduino-cli compile --upload -p <port> --fqbn arduino:avr:uno firmware/scanner
 ```
 
-## 2. Open the page
-
-Run this from the repo root, then open <http://localhost:3000> in Chrome or Edge:
+## 2. Start the page
 
 ```bash
 npm --prefix web run dev
 ```
 
-Before connecting, make a mark on the linkage where tilt sits now. This is your tilt reference mark. Scans are safest if you start from around the middle of the travel, so move it there by hand first, with the 12V supply off.
+Open <http://localhost:3000> in Chrome or Edge.
 
-## 3. Connect and enable
+## 3. Position the scanner
 
-1. Turn on the 12V supply.
-2. Press Connect and choose the Uno. The Uno resets, which takes a moment.
-3. Tick the checklist and press Enable motors. The motors should now resist being turned by hand.
+With the 12V off, move Y (tilt) to its lower endpoint and X (pan) to the start of its sweep by hand. The sketch treats wherever it starts as zero.
 
-If nothing holds, check the 12V supply. The software can't detect whether motor power is on.
+## 4. Scan
 
-## 4. Find out which motor is which
+1. Turn on the 12V and press **Connect**. Connecting restarts the Arduino, which locks the motors.
+2. Press **Test reading** with something 20-60 cm in front of the sensor, to check the distance looks right.
+3. Set **X sweep per row** (how far it pans across each row, up to 90°) and **Y per row** (how far it tilts between rows, in microsteps; smaller means more rows). The page shows how many rows and points that makes and roughly how long it takes. The defaults, 45° and 10, give 46 rows in about 10 minutes.
+4. Press **Start**, which sends those settings to the Arduino and begins. Press **Stop** to end early.
+5. Press **Save CSV** when it's done.
 
-Press **Pan +1** and watch which axis moves, then press **Pan -1** to put it back. If the tilt axis moved, change Tilt motor to X driver and try again. Do this before anything else, because the tilt limit only protects the driver chosen as tilt.
+## 5. Set the tilt angle
 
-## 5. Check the tilt protection
+Measure how many degrees the sensor tilts across the full Y travel, for example with a phone level at the bottom and top. Enter it in **Tilt across full Y travel**. The scan reshapes straight away, so you can do this after scanning.
 
-Press **Tilt +5** four times, stopping sooner if the linkage nears the end of its travel. A fifth press should be refused with a message. Press **Tilt -5** until the page shows tilt 0.
+## 6. Scan again
 
-## 6. Measure the tilt limits
-
-Jog tilt in small steps towards each end of its travel, stopping **before** the linkage binds, and note the position shown on the page. If you hit a limit first, raise it in small amounts. Enter the lowest and highest positions as the tilt limits. Leave a margin.
-
-If the motor ever skips or the linkage jams, the position shown is no longer true. Release the motors, move tilt back to the mark by hand, enable the motors and press Set tilt mark here. Only press that button when tilt is physically on your mark, because the limits are measured from wherever you set it.
-
-## 7. Measure degrees per step
-
-**Tilt:** jog a known number of steps, for example 10, measure how far the sensor's angle changed with a phone level, and divide. Enter it as Tilt degrees per step. The Start button stays disabled until this is set. Loading a scan also fills in the calibration boxes, including from the sample scan, so if you've loaded one, replace those values with what you measured.
-
-**Pan:** the default of 1.8 is right if the motor drives the base directly. Otherwise measure it the same way.
-
-## 8. Scan a flat wall
-
-Face a flat wall about 40 cm away and scan with the default ranges, which takes about 6 minutes. In the 3D view, the white dot is the scanner.
-
-- **Distance:** the wall should appear at the distance you measured. If it's off, adjust Curve A and Sensor offset.
-- **Flatness:** the wall should look flat from the side. A curve across it usually means a degrees-per-step value is wrong, and a shift in the bottom row means slack in the screw.
-
-The calibration boxes update the existing scan straight away, so you can adjust without rescanning.
-
-## 9. Check for mirroring
-
-Put an object to the scanner's right and scan. View the result from behind the scanner, looking the way the sensor faces. If the object appears on the wrong side, make Pan degrees per step negative. Check up and down the same way for tilt.
-
-## 10. Scan an object
-
-Place it 20-60 cm away, and never closer than 10 cm. Up close, this sensor reads as if the object were far away, and the software can't detect that. Aim with the jog buttons, then start the scan. Save it when it's done, because scans aren't kept when you close the page.
-
-"0 of N samples in range" means the sensor saw nothing between 10 and 80 cm. Check the sensor's wiring and how far away the object is.
+The sketch only scans once per restart. Move both axes back to their start positions by hand, with the 12V off, then press **New scan**.
 
 ## When you're finished
 
-Press Disconnect, which releases the motors, then turn off the 12V supply. Closing the page usually releases them too, but that isn't guaranteed, and if the browser crashes they stay powered and can get hot. So always turn off the 12V supply when you're done.
+Turn off the 12V. The sketch keeps the motors locked as long as it's running, so they stay powered until you do.
