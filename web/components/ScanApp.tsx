@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PointCloud } from "@/components/PointCloud";
 import {
+  nearPoints,
   parseLine,
   parseSettings,
   type Point,
@@ -81,6 +82,7 @@ export function ScanApp() {
   const [tiltSpan, setTiltSpan] = useStoredNumber("rlk-tilt-span", 30);
   const [sweepDeg, setSweepDeg] = useStoredNumber("rlk-x-sweep", 45);
   const [yRow, setYRow] = useStoredNumber("rlk-y-row", 10);
+  const [maxCm, setMaxCm] = useStoredNumber("rlk-max-cm", NaN);
   // The sweep the current scan used, so its points stay centred if the setting changes.
   const [scanSweep, setScanSweep] = useState(sweepDeg);
   const [unsaved, setUnsaved] = useState(false);
@@ -94,11 +96,13 @@ export function ScanApp() {
   const scanning = phase === "scanning";
   const settingsProblem = scanSettingsProblem(sweepDeg, yRow);
   const size = settingsProblem ? null : scanSize(sweepDeg, yRow);
-  const points = useMemo(
+  const allPoints = useMemo(
     () =>
       readings.map((r) => toPoint(r, tiltSpan, scanSweep)).filter((p): p is Point => p !== null),
     [readings, tiltSpan, scanSweep],
   );
+  const points = useMemo(() => nearPoints(allPoints, maxCm), [allPoints, maxCm]);
+  const hidden = allPoints.length - points.length;
   const row = readings.at(-1);
 
   const go = (next: Phase) => {
@@ -282,6 +286,12 @@ export function ScanApp() {
         <Setting label="X sweep per row" unit="°" value={sweepDeg} onChange={setSweepDeg} disabled={scanning} />
         <Setting label="Y per row" unit="microsteps" value={yRow} onChange={setYRow} disabled={scanning} />
         <Setting label="Tilt across full Y travel" unit="°" value={tiltSpan} onChange={setTiltSpan} />
+        <Setting
+          label="Hide points farther than"
+          unit="cm (blank shows all)"
+          value={maxCm}
+          onChange={setMaxCm}
+        />
         <span className="text-sm text-zinc-400">
           {size
             ? `${size.rows} rows × ${size.pointsPerRow} points, about ${size.minutes} min`
@@ -298,6 +308,7 @@ export function ScanApp() {
       <p className="text-sm tabular-nums text-zinc-400">
         {row ? `Row ${row.row}/${row.rows} · ` : ""}
         {points.length} points from {readings.length} readings
+        {hidden > 0 ? ` (${hidden} farther points hidden)` : ""}
         {last ? ` · last reading ${describe(last)}` : ""}
         {readings.length > 0 && Number.isNaN(tiltSpan) ? " · set the tilt angle to see the points" : ""}
       </p>

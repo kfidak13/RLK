@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  nearPoints,
   parseLine,
   parseSettings,
   type Reading,
@@ -144,6 +145,17 @@ describe("parseSettings", () => {
 
   it.each(["Scan started.", "Sharp IR scanner ready.", ROW])("ignores %j", (line) =>
     expect(parseSettings(line)).toBeNull());
+});
+
+describe("nearPoints", () => {
+  const at = (cm: number) => ({ x: 0, y: 0, z: cm, cm });
+  const points = [at(20), at(35), at(35.1), at(70)];
+
+  it("hides points farther than the limit, keeping ones exactly at it", () =>
+    expect(nearPoints(points, 35).map((p) => p.cm)).toEqual([20, 35]));
+
+  it("shows everything when the limit is blank", () =>
+    expect(nearPoints(points, NaN)).toEqual(points));
 });
 
 describe("toCsv", () => {

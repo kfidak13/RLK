@@ -84,7 +84,12 @@ export function toPoint(r: Reading, tiltSpanDeg: number, sweepDeg: number): Poin
   };
 }
 
-const cell = (v: number | null | undefined) => (v === null || v === undefined ? "" : String(v));
+// Hides the background behind the object. A blank (NaN) limit shows everything.
+export function nearPoints(points: Point[], maxCm: number): Point[] {
+  return Number.isNaN(maxCm) ? points : points.filter((p) => p.cm <= maxCm);
+}
+
+const cell =(v: number | null | undefined) => (v === null || v === undefined ? "" : String(v));
 const round = (v: number) => Math.round(v * 100) / 100;
 
 export function toCsv(readings: Reading[], tiltSpanDeg: number, sweepDeg: number): string {
