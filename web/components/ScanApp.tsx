@@ -16,7 +16,9 @@ import {
   toCsv,
   toPoint,
 } from "@/lib/sketchLine";
-import { isWebSerialAvailable, openWebSerial, type Transport } from "@/lib/webSerial";
+import { parseIntelHex } from "@/lib/intelHex";
+import { flash } from "@/lib/stk500";
+import { isWebSerialAvailable, openByteLink, openWebSerial, type Transport } from "@/lib/webSerial";
 
 type Phase = "disconnected" | "connecting" | "ready" | "scanning" | "done";
 
@@ -86,6 +88,8 @@ export function ScanApp() {
   // The sweep the current scan used, so its points stay centred if the setting changes.
   const [scanSweep, setScanSweep] = useState(sweepDeg);
   const [unsaved, setUnsaved] = useState(false);
+  // Upload progress from 0 to 1, or null when not uploading.
+  const [uploading, setUploading] = useState<number | null>(null);
   const transportRef = useRef<Transport | null>(null);
   const phaseRef = useRef<Phase>("disconnected");
   // What Start asked for, and what the Arduino last said it's using.
@@ -130,7 +134,7 @@ export function ScanApp() {
       setMessage(
         confirmed
           ? `Scanning, but the Arduino is using an X sweep of ${sweepDegrees(confirmed.xSweepMicrosteps)}° and ${confirmed.yRowMicrosteps} microsteps per row, not your settings.`
-          : "Scanning, but the Arduino didn't confirm your X sweep and Y settings, so it's probably running an older sketch that always sweeps 45°. Stop, upload firmware/scanner, and scan again.",
+          : "Scanning, but the Arduino didn't confirm your X sweep and Y settings, so it's probably running an older sketch that always sweeps 45°. Stop, press Update Arduino, and scan again.",
       );
       return;
     }
@@ -213,6 +217,51 @@ export function ScanApp() {
 
   const send = (command: string) => transportRef.current?.write(command);
 
+  // Uploads this site's copy of firmware/scanner, then connects to it.
+  const updateArduino = async () => {
+    if (
+      !window.confirm(
+        "This uploads the scanner sketch to the Arduino, replacing the sketch on it now. The motors don't move during the upload. Continue?",
+      )
+    )
+      return;
+    setMessage(null);
+    setUploading(0);
+    let port: SerialPort;
+    const transport = transportRef.current;
+    try {
+      if (transport) {
+        transportRef.current = null;
+        go("disconnected");
+        await transport.close();
+        port = transport.port;
+      } else {
+        port = await navigator.serial.requestPort();
+      }
+    } catch {
+      setUploading(null);
+      return; // Chooser cancelled.
+    }
+
+    try {
+      const response = await fetch("scanner.hex", { cache: "no-store" });
+      if (!response.ok) throw new Error("This site doesn't have the sketch file yet.");
+      const image = parseIntelHex(await response.text());
+      const link = await openByteLink(port);
+      try {
+        await flash(link, image, setUploading);
+      } finally {
+        await link.close();
+      }
+    } catch (e) {
+      setUploading(null);
+      setMessage(`Upload failed: ${e instanceof Error ? e.message : "something went wrong."}`);
+      return;
+    }
+    setUploading(null);
+    await connect(port);
+  };
+
   const start = async () => {
     if (settingsProblem) return;
     if (unsaved && !window.confirm("The current scan isn't saved. Replace it?")) return;
@@ -279,6 +328,14 @@ export function ScanApp() {
           onClick={save}
         >
           Save CSV
+        </button>
+        <button
+          type="button"
+          className={`${button} ml-auto`}
+          disabled={!serialAvailable || scanning || uploading !== null || phase === "connecting"}
+          onClick={updateArduino}
+        >
+          {uploading === null ? "Update Arduino" : `Uploading ${Math.round(uploading * 100)}%`}
         </button>
       </div>
 

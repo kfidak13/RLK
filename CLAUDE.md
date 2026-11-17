@@ -50,6 +50,8 @@ Design: `docs/superpowers/specs/2026-11-12-simple-scan-page-design.md`.
 - Live page: https://kfidak13.github.io/RLK/ (published by `.github/workflows/pages.yml` on every push to main)
 - `npm --prefix web run dev`: run the page at localhost:3000 (Chrome or Edge, for Web Serial)
 - `npm --prefix web test`: run the tests
+- `npm --prefix web run firmware`: compile the sketch to `web/public/scanner.hex`, which the page's
+  Update Arduino button uploads (`web/lib/stk500.ts`). The publish workflow does this on every push.
 - `arduino-cli compile --upload -p <port> --fqbn arduino:avr:uno firmware/scanner`: flash the sketch
 
 ## Notes for development

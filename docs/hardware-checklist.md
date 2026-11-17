@@ -4,7 +4,11 @@
 
 ## 1. Flash the sketch
 
-Close the Arduino IDE's Serial Monitor first, because only one program can use the port. From the repo root:
+Close the Arduino IDE's Serial Monitor first, because only one program can use the port.
+
+The easiest way is the page itself: open <https://kfidak13.github.io/RLK/> in Chrome or Edge, press **Update Arduino**, and pick the Uno. It uploads the current `firmware/scanner` sketch, checks it, and connects.
+
+Or, from the repo root:
 
 ```bash
 arduino-cli board list

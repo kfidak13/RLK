@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "firmware": "arduino-cli compile --fqbn arduino:avr:uno --output-dir ../firmware/build ../firmware/scanner && cp ../firmware/build/scanner.ino.hex public/scanner.hex"
   },
   "dependencies": {
     "next": "16.4.6",

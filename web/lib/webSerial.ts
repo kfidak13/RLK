@@ -1,3 +1,5 @@
+import type { ByteLink } from "./stk500";
+
 export interface Transport {
   port: SerialPort;
   // Sends one line; the transport adds the line ending.
@@ -86,6 +88,67 @@ export async function openWebSerial(existing?: SerialPort): Promise<Transport> {
       reader.releaseLock();
       await port.close().catch(() => {});
       finish();
+    },
+  };
+}
+
+// Raw bytes for uploading a sketch through the bootloader (see stk500.ts).
+export async function openByteLink(port: SerialPort): Promise<ByteLink & { close(): Promise<void> }> {
+  await port.open({ baudRate: BAUD_RATE });
+  const reader = port.readable!.getReader();
+  let received: number[] = [];
+  // Wakes a read waiting for more bytes.
+  let wake = () => {};
+
+  void (async () => {
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        received.push(...value);
+        wake();
+      }
+    } catch {
+      // The port closed or the cable was pulled; reads time out from here on.
+    }
+  })();
+
+  const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  return {
+    async reset() {
+      await port.setSignals({ dataTerminalReady: false, requestToSend: false });
+      await pause(100);
+      await port.setSignals({ dataTerminalReady: true, requestToSend: true });
+      await pause(50);
+    },
+    drain() {
+      received = [];
+    },
+    async write(bytes) {
+      const writer = port.writable!.getWriter();
+      try {
+        await writer.write(bytes);
+      } finally {
+        writer.releaseLock();
+      }
+    },
+    async read(count, timeoutMs) {
+      const deadline = Date.now() + timeoutMs;
+      while (received.length < count) {
+        const left = deadline - Date.now();
+        if (left <= 0) throw new Error("No reply from the Arduino.");
+        await new Promise<void>((resolve) => {
+          wake = resolve;
+          setTimeout(resolve, left);
+        });
+      }
+      return Uint8Array.from(received.splice(0, count));
+    },
+    async close() {
+      await reader.cancel().catch(() => {});
+      reader.releaseLock();
+      await port.close().catch(() => {});
     },
   };
 }
