@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   parseLine,
+  parseSettings,
   type Reading,
   scanSettingsProblem,
   scanSize,
@@ -126,6 +127,23 @@ describe("scan settings", () => {
     ["a row step past the travel", 45, 451],
   ])("refuses %s", (_, sweep, row) =>
     expect(scanSettingsProblem(sweep, row)).toEqual(expect.any(String)));
+});
+
+describe("parseSettings", () => {
+  it("reads the settings the Arduino confirms", () =>
+    expect(
+      parseSettings(
+        "Settings: X sweep 160 microsteps (18.0 deg) | Y 450 microsteps per row | 2 rows",
+      ),
+    ).toEqual({ xSweepMicrosteps: 160, yRowMicrosteps: 450 }));
+
+  it("ignores a junk byte stuck to the front", () =>
+    expect(
+      parseSettings("�Settings: X sweep 400 microsteps (45.0 deg) | Y 10 microsteps per row | 46 rows"),
+    ).toEqual({ xSweepMicrosteps: 400, yRowMicrosteps: 10 }));
+
+  it.each(["Scan started.", "Sharp IR scanner ready.", ROW])("ignores %j", (line) =>
+    expect(parseSettings(line)).toBeNull());
 });
 
 describe("toCsv", () => {

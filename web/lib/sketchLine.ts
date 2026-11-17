@@ -21,6 +21,7 @@ const Y_TRAVEL_MICROSTEPS = 450;
 const SECONDS_PER_POINT = 0.51;
 
 export const sweepMicrosteps = (sweepDeg: number) => Math.round(sweepDeg / X_DEG_PER_MICROSTEP);
+export const sweepDegrees = (microsteps: number) => microsteps * X_DEG_PER_MICROSTEP;
 
 export function scanSettingsProblem(sweepDeg: number, yRowMicrosteps: number): string | null {
   const sweep = sweepMicrosteps(sweepDeg);
@@ -57,6 +58,16 @@ export function parseLine(line: string): Reading | null {
     volts: Number(distance[2]),
     cm: distance[3] === undefined ? null : Number(distance[3]),
   };
+}
+
+export type SketchSettings = { xSweepMicrosteps: number; yRowMicrosteps: number };
+
+const SETTINGS = /Settings: X sweep (\d+) microsteps .*\| Y (\d+) microsteps per row/;
+
+// The sketch prints its settings at boot and after each x or y command.
+export function parseSettings(line: string): SketchSettings | null {
+  const m = SETTINGS.exec(line);
+  return m ? { xSweepMicrosteps: Number(m[1]), yRowMicrosteps: Number(m[2]) } : null;
 }
 
 export function toPoint(r: Reading, tiltSpanDeg: number, sweepDeg: number): Point | null {

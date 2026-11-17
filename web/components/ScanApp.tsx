@@ -4,10 +4,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { PointCloud } from "@/components/PointCloud";
 import {
   parseLine,
+  parseSettings,
   type Point,
   type Reading,
+  type SketchSettings,
   scanSettingsProblem,
   scanSize,
+  sweepDegrees,
   sweepMicrosteps,
   toCsv,
   toPoint,
@@ -83,6 +86,9 @@ export function ScanApp() {
   const [unsaved, setUnsaved] = useState(false);
   const transportRef = useRef<Transport | null>(null);
   const phaseRef = useRef<Phase>("disconnected");
+  // What Start asked for, and what the Arduino last said it's using.
+  const requestedRef = useRef<SketchSettings | null>(null);
+  const confirmedRef = useRef<SketchSettings | null>(null);
 
   const serialAvailable = isWebSerialAvailable();
   const scanning = phase === "scanning";
@@ -107,13 +113,36 @@ export function ScanApp() {
     return () => window.removeEventListener("beforeunload", warn);
   }, [unsaved]);
 
+  // An older sketch ignores the x and y commands without saying so, and sweeps 45°.
+  const checkSettings = () => {
+    const requested = requestedRef.current;
+    const confirmed = confirmedRef.current;
+    setScanSweep(sweepDegrees(confirmed?.xSweepMicrosteps ?? sweepMicrosteps(45)));
+    if (
+      requested &&
+      (confirmed?.xSweepMicrosteps !== requested.xSweepMicrosteps ||
+        confirmed?.yRowMicrosteps !== requested.yRowMicrosteps)
+    ) {
+      setMessage(
+        confirmed
+          ? `Scanning, but the Arduino is using an X sweep of ${sweepDegrees(confirmed.xSweepMicrosteps)}° and ${confirmed.yRowMicrosteps} microsteps per row, not your settings.`
+          : "Scanning, but the Arduino didn't confirm your X sweep and Y settings, so it's probably running an older sketch that always sweeps 45°. Stop, upload firmware/scanner, and scan again.",
+      );
+      return;
+    }
+    setMessage("Scanning. Press Stop to end early.");
+  };
+
   const handleLine = (line: string) => {
+    const settings = parseSettings(line);
+    if (settings) confirmedRef.current = settings;
+
     if (line.includes("scanner ready")) {
       go("ready");
       setMessage("Ready. Put Y at its lower end and X at the start of its sweep, then press Start.");
     } else if (line.startsWith("Scan started")) {
       go("scanning");
-      setMessage("Scanning. Press Stop to end early.");
+      checkSettings();
     } else if (line.startsWith("Scan complete")) {
       go("done");
       setMessage("Scan complete. Save it, then reposition both axes before a new scan.");
@@ -147,6 +176,7 @@ export function ScanApp() {
       return;
     }
     transportRef.current = transport;
+    confirmedRef.current = null;
 
     setTimeout(() => {
       if (transportRef.current === transport && phaseRef.current === "connecting")
@@ -186,6 +216,7 @@ export function ScanApp() {
     setLast(null);
     setUnsaved(false);
     setScanSweep(sweepDeg);
+    requestedRef.current = { xSweepMicrosteps: sweepMicrosteps(sweepDeg), yRowMicrosteps: yRow };
     await send(`x ${sweepMicrosteps(sweepDeg)}`);
     await send(`y ${yRow}`);
     await send("s");
